@@ -41,6 +41,8 @@ bin/install-modules
 
 echo "==> store configuration: Varnish, CSP enforce on the storefront, reindex"
 run "bin/magento config:set system/full_page_cache/caching_application 2"
+# No secret keys in admin URLs: lets Playwright and the browser open admin pages by URL (dev fixture only).
+run "bin/magento config:set admin/security/use_form_key 0"
 # csp/mode/storefront/report_only has no admin field, so config:set rejects it; write it directly.
 warden env exec -T db mysql -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e "INSERT INTO core_config_data (scope, scope_id, path, value) VALUES ('default',0,'csp/mode/storefront/report_only','0') ON DUPLICATE KEY UPDATE value='0'"
 run "bin/magento indexer:reindex && bin/magento cache:flush"
