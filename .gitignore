@@ -1,0 +1,20 @@
+# This repository versions only the environment definition, setup scripts and Playwright tests.
+# The Magento installation itself (created by bin/setup) is ignored.
+/*
+!/.gitignore
+!/.env.example
+!/admin.env.example
+!/.warden/
+!/README.md
+!/LICENSE
+!/bin/
+/bin/*
+!/bin/setup
+!/bin/install-hyva
+!/bin/install-modules
+!/playwright/
+/playwright/node_modules/
+/playwright/test-results/
+/playwright/playwright-report/
+/playwright/.auth/
+!/docs/

@@ -1,0 +1,14 @@
+{
+  "name": "openlabel-dev-env-playwright",
+  "private": true,
+  "description": "End-to-end tests for the OpenLabel fixture store (Hyvä 1.4, CSP enforced, Varnish on)",
+  "license": "MIT",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^22.0.0"
+  }
+}

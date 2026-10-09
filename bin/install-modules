@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Installs the OpenLabel module checkouts from ./modules (symlinked path repository) into the fixture store.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+run() { warden env exec -T php-fpm bash -lc "cd /var/www/html && $*"; }
+
+# Version overrides let the inter-package constraints (^1.0) resolve against the dev checkouts.
+run "composer config repositories.openlabel '{\"type\":\"path\",\"url\":\"modules/*\",\"options\":{\"symlink\":true,\"versions\":{\"iranimij/module-base\":\"1.0.0\",\"iranimij/openlabel\":\"1.0.0\",\"iranimij/openlabel-hyva\":\"1.0.0\"}}}'"
+run "composer require --no-interaction --no-progress --no-plugins -W iranimij/module-base:1.0.0 iranimij/openlabel:1.0.0 iranimij/openlabel-hyva:1.0.0"
+run "bin/magento module:enable Iranimij_Base Iranimij_OpenLabel Iranimij_OpenLabelHyva && bin/magento setup:upgrade && bin/magento setup:di:compile && bin/magento hyva:config:generate && bin/magento cache:flush"

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Installs the Hyvä default theme from the OSL packages in ./hyva (path repository) and activates it.
+# The ./hyva directory holds only OSL/AFL/BSD licensed Hyvä packages (theme, theme-module and their
+# dependencies). Hyvä Checkout and Hyvä Commerce are proprietary and are never part of this fixture.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+run() { warden env exec -T php-fpm bash -lc "cd /var/www/html && $*"; }
+
+echo "==> composer path repository for ./hyva"
+run "composer config repositories.hyva '{\"type\":\"path\",\"url\":\"hyva/*\",\"options\":{\"symlink\":true,\"versions\":{\"hyva-themes/magento2-default-theme\":\"1.4.2\",\"hyva-themes/magento2-theme-module\":\"1.5.2\",\"hyva-themes/magento2-base-layout-reset\":\"2.0.1\",\"hyva-themes/magento2-email-module\":\"1.0.0\",\"hyva-themes/magento2-graphql-tokens\":\"1.0.0\",\"hyva-themes/magento2-graphql-view-model\":\"1.0.1\",\"hyva-themes/magento2-order-cancellation-webapi\":\"1.0.1\",\"hyva-themes/magento2-mollie-theme-bundle\":\"1.0.1\",\"hyva-themes/magento2-compat-module-fallback\":\"1.1.4\"}}}'"
+echo "==> composer require hyva-themes/magento2-default-theme:1.4.2"
+# --no-plugins: the Magento Composer plugins break archive extraction inside the Warden container
+# ("directory does not exist" during unzip); path packages and Magento core are already in place.
+run "composer require --no-interaction --no-progress --no-plugins hyva-themes/magento2-default-theme:1.4.2 && bin/magento setup:upgrade"
+
+echo "==> activate Hyvä/default for the default store"
+THEME_ID=$(warden env exec -T db mysql -N -umagento -pmagento magento -e "SELECT theme_id FROM theme WHERE theme_path='Hyva/default'" 2>/dev/null | tr -d '[:space:]')
+run "bin/magento config:set design/theme/theme_id $THEME_ID && bin/magento cache:flush"

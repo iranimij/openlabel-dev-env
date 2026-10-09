@@ -1,0 +1,38 @@
+import { test, expect } from '@playwright/test';
+import { collectCspViolations, firstProductUrl } from './helpers';
+
+/** Sample-data category present in every fixture build. */
+const CATEGORY = '/women/tops-women.html';
+
+test.describe('fixture store baseline', () => {
+  test('home page renders the Hyvä theme behind Varnish with CSP enforced', async ({ page, request }) => {
+    const response = await request.get('/');
+    expect(response.status()).toBe(200);
+    const headers = response.headers();
+    expect(headers['content-security-policy'], 'CSP must be in enforce mode on the storefront').toBeDefined();
+    expect(headers['content-security-policy-report-only']).toBeUndefined();
+    expect(headers['via'] ?? headers['x-varnish'], 'Varnish must be in front of the store').toBeDefined();
+
+    const violations = collectCspViolations(page);
+    await page.goto('/');
+    await expect(page.locator('body')).toHaveAttribute('class', /hyva-theme|cms-index-index/);
+    expect(violations).toEqual([]);
+  });
+
+  test('category listing shows product cards from sample data', async ({ page }) => {
+    const violations = collectCspViolations(page);
+    await page.goto(CATEGORY);
+    const cards = page.locator('.product-item');
+    expect(await cards.count()).toBeGreaterThan(0);
+    await expect(cards.first().locator('a.product-item-photo img')).toBeVisible();
+    expect(violations).toEqual([]);
+  });
+
+  test('product page renders the Hyvä gallery container', async ({ page }) => {
+    const violations = collectCspViolations(page);
+    await page.goto(await firstProductUrl(page, CATEGORY));
+    await expect(page.locator('#gallery-main')).toBeVisible();
+    await expect(page.locator('#gallery-main img').first()).toHaveAttribute('width', /\d+/);
+    expect(violations).toEqual([]);
+  });
+});
