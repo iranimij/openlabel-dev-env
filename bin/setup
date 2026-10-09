@@ -37,7 +37,8 @@ bin/install-hyva
 bin/install-modules
 
 echo "==> store configuration: Varnish, CSP enforce on the storefront, reindex"
-run "bin/magento config:set system/full_page_cache/caching_application 2 \
-  && bin/magento config:set csp/mode/storefront/report_only 0 \
-  && bin/magento indexer:reindex && bin/magento cache:flush"
+run "bin/magento config:set system/full_page_cache/caching_application 2"
+# csp/mode/storefront/report_only has no admin field, so config:set rejects it; write it directly.
+warden env exec -T db mysql -u"$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e "INSERT INTO core_config_data (scope, scope_id, path, value) VALUES ('default',0,'csp/mode/storefront/report_only','0') ON DUPLICATE KEY UPDATE value='0'"
+run "bin/magento indexer:reindex && bin/magento cache:flush"
 echo "Done: https://app.openlabel.test/  admin: https://app.openlabel.test/admin"

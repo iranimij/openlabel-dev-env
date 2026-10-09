@@ -33,20 +33,49 @@ test.describe('Hyvä 1.4 hooks for OpenLabel', () => {
     await expect(anchor).toHaveCSS('display', 'block');
   });
 
-  test('listing: no absolutely positioned elements inside the product card image area', async ({ page }) => {
+  test('listing: nothing absolutely positioned overlaps the product image', async ({ page }) => {
     await page.goto(CATEGORY);
-    const absoluteInCards = await page.locator('.product-item *').evaluateAll((els) =>
-      els.filter((el) => getComputedStyle(el as HTMLElement).position === 'absolute').length,
-    );
-    expect(absoluteInCards).toBe(0);
+    await page.locator('.product-item a.product-item-photo img').first().waitFor();
+    // Hyvä positions swatch radio inputs absolutely (under the swatch buttons) and uses `sr-only` helpers;
+    // neither touches the image area. Anything that does would collide with label positions (FE5).
+    const offenders = await page.locator('.product-item').evaluateAll((cards) => {
+      const hits: string[] = [];
+      for (const card of cards) {
+        const image = card.querySelector('a.product-item-photo');
+        if (!image) continue;
+        const area = image.getBoundingClientRect();
+        for (const el of Array.from(card.querySelectorAll('*'))) {
+          const style = getComputedStyle(el as HTMLElement);
+          const r = (el as HTMLElement).getBoundingClientRect();
+          const overlaps = r.width > 1 && r.height > 1 && r.left < area.right && r.right > area.left && r.top < area.bottom && r.bottom > area.top;
+          if (style.position === 'absolute' && overlaps && !el.classList.contains('sr-only')) {
+            hits.push(`${el.tagName.toLowerCase()}.${Array.from(el.classList).join('.')}`);
+          }
+        }
+      }
+      return hits;
+    });
+    expect(offenders).toEqual([]);
   });
 
-  test('listing: container-type inline-size on the image anchor does not shift layout', async ({ page }) => {
+  test('listing: container-type inline-size on the image anchor collapses it (so OpenLabel must not do that)', async ({ page }) => {
     await page.goto(CATEGORY);
-    const selector = '.product-item a.product-item-photo, .product-item a.product-item-photo img, .product-item .product-info';
-    const before = await boxesOf(page, selector);
+    await page.locator('.product-item a.product-item-photo img').first().waitFor();
+    const before = await boxesOf(page, '.product-item a.product-item-photo', 1);
+    expect(before[0].width).toBeGreaterThan(50);
     await page.addStyleTag({ content: '.product-item a.product-item-photo{container-type:inline-size}' });
-    const after = await boxesOf(page, selector);
+    const after = await boxesOf(page, '.product-item a.product-item-photo', 1);
+    // The anchor is shrink-to-fit (mx-auto in a flex column): inline-size containment removes its only size source.
+    expect(after[0].width).toBe(0);
+  });
+
+  test('listing: container-type inline-size on the product card does not shift layout', async ({ page }) => {
+    await page.goto(CATEGORY);
+    await page.waitForLoadState('networkidle');
+    const selector = '.product-item, .product-item a.product-item-photo, .product-item a.product-item-photo img, .product-item .product-info';
+    const before = await boxesOf(page, selector, 48);
+    await page.addStyleTag({ content: '.product-item{container-type:inline-size}' });
+    const after = await boxesOf(page, selector, 48);
     expect(after).toEqual(before);
   });
 
@@ -71,18 +100,21 @@ test.describe('Hyvä 1.4 hooks for OpenLabel', () => {
   });
 
   test('product page: Hyvä dispatches configurable-selection-changed on swatch selection', async ({ page }) => {
-    await page.goto(CATEGORY);
-    const configurableCard = page.locator('.product-item').filter({ has: page.locator('.swatch-option, [data-attribute-code]') }).first();
-    const url = await configurableCard.locator('a.product-item-photo').getAttribute('href');
-    test.skip(!url, 'no configurable product on the first listing page');
-    await page.goto(url!);
+    // Radiant Tee is a configurable product from the Magento sample data.
+    await page.goto('/radiant-tee.html');
     await page.evaluate(() => {
       (window as unknown as { __olEvents: string[] }).__olEvents = [];
       for (const name of ['configurable-selection-changed', 'update-gallery', 'reset-gallery']) {
         window.addEventListener(name, (e) => (window as unknown as { __olEvents: string[] }).__olEvents.push(name + ':' + JSON.stringify((e as CustomEvent).detail?.productIndex ?? null)));
       }
     });
-    await page.locator('.swatch-attribute .swatch-option, [x-data*="initConfigurableSwatchOptions"] button, .product-option-values button').first().click();
+    // Options are rendered by Alpine once the swatch block is in the viewport (x-defer), so scroll first.
+    const group = page.getByRole('radiogroup', { name: 'Size' }).first();
+    await group.scrollIntoViewIfNeeded();
+    const swatch = group.locator('label').first();
+    await swatch.waitFor();
+    await swatch.click();
+    await page.waitForTimeout(300);
     const events = await page.evaluate(() => (window as unknown as { __olEvents: string[] }).__olEvents);
     expect(events.some((e) => e.startsWith('configurable-selection-changed:'))).toBe(true);
   });
