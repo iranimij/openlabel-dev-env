@@ -30,4 +30,5 @@ Store: https://app.openlabel.test/ · Admin: https://app.openlabel.test/admin
 - `wardenenv/opensearch:2.12` crashes the JVM on Apple Silicon; `.warden/warden-env.yml` pins `opensearchproject/opensearch:2.5.0`.
 - Composer `require`/`install` of dist packages must run with `--no-plugins` inside the container; the Magento Composer plugins make archive extraction fail (`directory does not exist`). The scripts do this.
 - Mutagen ignores `pub/media`, `pub/static` and `var/`; logs from background installs live in the container (`/tmp/*.log`).
+- Admin two-factor authentication is disabled on this fixture (`Magento_TwoFactorAuth`, `Magento_AdminAdobeImsTwoFactorAuth`) so Playwright and the browser can log in. Never do this on a real store.
 - Nothing from any paid extension is ever installed here (clean-room rule of the project).

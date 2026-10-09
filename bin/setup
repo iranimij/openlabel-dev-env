@@ -30,6 +30,9 @@ run "bin/magento setup:install \
   --admin-user=$ADMIN_USER --admin-password=$ADMIN_PASSWORD --admin-email=$ADMIN_EMAIL --admin-firstname=Open --admin-lastname=Label \
   --language=en_US --currency=EUR --timezone=Europe/Berlin --use-rewrites=1 --cleanup-database"
 
+echo "==> disable admin two-factor authentication (dev fixture only)"
+run "bin/magento module:disable Magento_TwoFactorAuth Magento_AdminAdobeImsTwoFactorAuth"
+
 echo "==> sample data"
 run "bin/magento sampledata:deploy && bin/magento setup:upgrade"
 
