@@ -24,7 +24,7 @@ test.describe('labels and designs grids', () => {
 });
 
 test.describe('labels grid editing', () => {
-  test.afterAll(() => deleteE2eLabels());
+  test.afterAll(() => { deleteE2eLabels(); sql("DELETE FROM ui_bookmark WHERE namespace = 'openlabel_label_listing';"); });
 
   test('inline edit of the status and mass disable', async ({ page }) => {
     const first = uniqueName('Grid A');
@@ -53,5 +53,24 @@ test.describe('labels grid editing', () => {
     await page.locator('.action-menu-item:visible').filter({ hasText: /^Disable$/ }).first().click();
     await expect(page.locator('.message-success')).toContainText('1 label(s) disabled.');
     expect(sql(`SELECT status FROM openlabel_label WHERE name = '${second}'`)[0][0]).toBe('0');
+  });
+
+  test('inline edit of the status keeps the times of the schedule', async ({ page }) => {
+    const name = uniqueName('Grid T');
+    const id = seedLabel(name);
+    sql(`UPDATE openlabel_label SET valid_from = '2026-10-01 14:30:00', valid_to = '2027-01-01 18:15:00' WHERE label_id = ${id}`);
+
+    await openAdmin(page, 'openlabel/label/index');
+    await page.getByRole('button', { name: 'Filters' }).click();
+    await page.locator('.admin__data-grid-filters input[name="name"]').fill(name);
+    await page.getByRole('button', { name: 'Apply Filters' }).click();
+    await page.locator('.data-row').filter({ hasText: name }).locator('td').nth(3).click();
+    const editor = page.locator('tr.data-grid-editable-row:visible').first();
+    await editor.locator('select[name="status"]').selectOption({ label: 'Disabled' });
+    await page.locator('.data-grid-editable-row-actions:visible button').filter({ hasText: 'Save' }).first().click();
+    await expect(page.locator('.data-row').filter({ hasText: name })).toContainText('Disabled');
+
+    expect(sql(`SELECT valid_from, valid_to FROM openlabel_label WHERE label_id = ${id}`)[0])
+      .toEqual(['2026-10-01 14:30:00', '2027-01-01 18:15:00']);
   });
 });
