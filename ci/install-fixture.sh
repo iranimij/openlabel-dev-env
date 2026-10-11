@@ -44,7 +44,9 @@ done
 composer require --no-update --no-interaction $sample "magento/sample-data-media:100.4.*" \
   "hyva-themes/magento2-default-theme:$HYVA_THEME_VERSION" "hyva-themes/magento2-theme-module:$HYVA_MODULE_VERSION" \
   "iranimij/module-base:^1.0" "iranimij/openlabel:dev-main" "iranimij/openlabel-hyva:dev-main"
-composer install --no-interaction --no-progress --prefer-dist
+# One retry: a truncated download from a package host ("is not a zip archive") must not fail the job.
+composer install --no-interaction --no-progress --prefer-dist \
+  || { echo "composer install failed, retrying once"; composer clear-cache; composer install --no-interaction --no-progress --prefer-dist; }
 echo "::endgroup::"
 
 echo "::group::setup:install"
