@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
@@ -34,4 +35,18 @@ export function magento(...args: string[]): string {
   return shell
     ? execFileSync('php', ['bin/magento', ...args], { cwd: magentoRoot, encoding: 'utf8' })
     : execFileSync('warden', ['env', 'exec', '-T', 'php-fpm', 'bin/magento', ...args], { cwd: repoRoot, encoding: 'utf8' });
+}
+
+/** Installed Hyvä default theme version, e.g. [1, 4, 2] (from Composer's installed.json in the store). */
+export function hyvaThemeVersion(): number[] {
+  const installed = JSON.parse(readFileSync(resolve(magentoRoot, 'vendor/composer/installed.json'), 'utf8'));
+  const packages: Array<{ name: string; version: string }> = installed.packages ?? installed;
+  const theme = packages.find((p) => p.name === 'hyva-themes/magento2-default-theme');
+  return String(theme?.version ?? '0').replace(/^v/, '').split('.').map((part) => Number.parseInt(part, 10) || 0);
+}
+
+/** Hyvä 1.5 rebuilt the product gallery: #gallery-main is a scrolling track inside #gallery > .relative. */
+export function isHyva15Gallery(): boolean {
+  const [major, minor] = hyvaThemeVersion();
+  return major > 1 || (major === 1 && minor >= 5);
 }

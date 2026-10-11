@@ -1,8 +1,9 @@
 import { test, expect, Page } from '@playwright/test';
 import { firstProductUrl } from './helpers';
+import { isHyva15Gallery } from './fixture';
 
 /**
- * Verifies the Hyvä 1.4 injection points OpenLabel relies on (docs/hyva-integration.md in the core repo):
+ * Verifies the Hyvä injection points (1.4 and 1.5) OpenLabel relies on (docs/hyva-integration.md in the core repo):
  * the listing image anchor and the product gallery container, and that both can become CSS containers
  * (`container-type: inline-size`) without moving anything (10 · Front-end Review, FE3).
  */
@@ -20,7 +21,7 @@ async function boxesOf(page: Page, selector: string, limit = 12): Promise<Box[]>
   );
 }
 
-test.describe('Hyvä 1.4 hooks for OpenLabel', () => {
+test.describe('Hyvä hooks for OpenLabel', () => {
   test('listing: image anchor wraps a bare <img> with width/height and the swatch-swap listener', async ({ page }) => {
     await page.goto(CATEGORY);
     const anchor = page.locator('.product-item a.product-item-photo').first();
@@ -79,8 +80,18 @@ test.describe('Hyvä 1.4 hooks for OpenLabel', () => {
     expect(after).toEqual(before);
   });
 
-  test('product page: #gallery-main is a relative block with a size-reserving placeholder image', async ({ page }) => {
+  test('product page: the gallery has a positioned box for the labels, sized before images load', async ({ page }) => {
     await page.goto(await firstProductUrl(page, CATEGORY));
+    if (isHyva15Gallery()) {
+      // Hyvä 1.5: #gallery-main is the scrolling track (data-track) inside the positioned #gallery > .relative.
+      const wrapper = page.locator('#gallery > .relative');
+      await expect(wrapper).toHaveCSS('position', 'relative');
+      await expect(wrapper.locator('> #gallery-main[data-track]')).toHaveCount(1);
+      const box = await wrapper.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThan(100);
+      expect(box?.width ?? 0).toBeGreaterThan(100);
+      return;
+    }
     const gallery = page.locator('#gallery-main');
     await expect(gallery).toHaveCSS('position', 'relative');
     const placeholder = gallery.locator('> img').first();
@@ -90,11 +101,13 @@ test.describe('Hyvä 1.4 hooks for OpenLabel', () => {
     expect(box?.height ?? 0).toBeGreaterThan(100);
   });
 
-  test('product page: container-type inline-size on #gallery-main does not shift layout', async ({ page }) => {
+  test('product page: container-type inline-size on the label container root does not shift layout', async ({ page }) => {
     await page.goto(await firstProductUrl(page, CATEGORY));
-    const selector = '#gallery-main, #gallery-main img, #thumbs, .product-info';
+    // OpenLabel's root: #gallery-main on Hyvä 1.3/1.4, the #gallery section on 1.5 (openlabel-hyva CSS).
+    const root = isHyva15Gallery() ? '#gallery' : '#gallery-main';
+    const selector = `${root}, #gallery-main, #gallery-main img, #thumbs, .product-info`;
     const before = await boxesOf(page, selector);
-    await page.addStyleTag({ content: '#gallery-main{container-type:inline-size}' });
+    await page.addStyleTag({ content: `${root}{container-type:inline-size}` });
     const after = await boxesOf(page, selector);
     expect(after).toEqual(before);
   });
@@ -109,7 +122,8 @@ test.describe('Hyvä 1.4 hooks for OpenLabel', () => {
       }
     });
     // Options are rendered by Alpine once the swatch block is in the viewport (x-defer), so scroll first.
-    const group = page.getByRole('radiogroup', { name: 'Size' }).first();
+    // Hyvä 1.4: role="radiogroup" named "Size"; 1.5: a fieldset whose legend reads "Size:".
+    const group = page.getByRole('radiogroup', { name: 'Size' }).or(page.getByRole('group', { name: /^Size/ })).first();
     await group.scrollIntoViewIfNeeded();
     const swatch = group.locator('label').first();
     await swatch.waitFor();

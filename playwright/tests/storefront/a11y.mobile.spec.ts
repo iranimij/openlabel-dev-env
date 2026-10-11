@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { cleanupStorefront, fixtureName, magento, seedDesign, seedSkuLabel } from './storefront';
+import { cleanupStorefront, fixtureName, galleryRoot, magento, seedDesign, seedSkuLabel } from './storefront';
 
 /**
  * Accessibility of labels (08 · UX Spec §2/§8, 10 · Front-end Review FE9): axe-core finds nothing in the label
@@ -49,8 +49,8 @@ test('listing: no axe violations in the label markup; the label is announced wit
 
 test('product page: no axe violations in the gallery labels', async ({ page }) => {
   await page.goto(BAND.path);
-  await expect(page.locator('#gallery-main .ol-label', { hasText: text })).toHaveCount(1);
+  await expect(page.locator(`${galleryRoot()} > .ol-stack .ol-label`, { hasText: text })).toHaveCount(1);
 
-  const results = await new AxeBuilder({ page }).include('#gallery-main > .ol-stack').analyze();
+  const results = await new AxeBuilder({ page }).include(`${galleryRoot()} > .ol-stack`).analyze();
   expect(results.violations.map((v) => v.id)).toEqual([]);
 });

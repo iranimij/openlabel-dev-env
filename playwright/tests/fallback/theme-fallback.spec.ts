@@ -16,7 +16,7 @@ const TAG = 'fallback';
 const SKU = '24-WG080';
 let previousTheme: string | null = null;
 let productPath = '';
-/** Set when the installed Hyvä gallery is not the 1.3/1.4 markup this fallback is written for (Hyvä 1.5+). */
+/** Set on Hyvä 1.5+, whose gallery template this fallback (a renamed 1.3/1.4 container) does not apply to. */
 let unsupported = '';
 
 test.beforeAll(() => {
@@ -24,7 +24,7 @@ test.beforeAll(() => {
     execFileSync(resolve(__dirname, '../../scripts/fallback-theme.sh'), { encoding: 'utf8' });
   } catch (error) {
     if ((error as { status?: number }).status === 3) {
-      unsupported = 'Hyvä gallery markup newer than 1.4 (not in OpenLabel 1.0\'s support matrix)';
+      unsupported = 'the fallback theme is derived from the Hyvä 1.3/1.4 gallery template; on 1.5 OpenLabel uses the gallery wrapper';
       return;
     }
     throw error;
