@@ -75,3 +75,13 @@ for (const persona of ['guest', 'general', 'wholesale'] as Persona[]) {
     }
   });
 }
+
+test('price variables are filled in a products query that asks for no price field', async ({ request }) => {
+  seedSkuLabel(name('Price'), seedDesign(name('Price'), 'From {PRICE}'), SKU, { position: 'br' });
+  const query = `{ products(filter: { sku: { eq: "${SKU}" } }) { items { openlabel_labels { text } } } }`;
+  const response = await request.get('/graphql', { params: { query }, headers: { Store: 'default' } });
+  const body = await response.json();
+  expect(body.errors, JSON.stringify(body.errors)).toBeUndefined();
+  const texts = (body.data.products.items[0].openlabel_labels as Array<{ text: string }>).map((label) => label.text);
+  expect(texts.filter((text) => text.startsWith('From '))[0]).toMatch(/^From €\d+[.,]\d{2}$/);
+});
