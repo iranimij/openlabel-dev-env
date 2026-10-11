@@ -59,4 +59,23 @@ test.describe('label form · show when', () => {
     const matched = Number(sql(`SELECT COUNT(DISTINCT product_id) FROM openlabel_index WHERE label_id = ${id}`)[0][0]);
     expect(matched, 'discounted products in those categories').toBeGreaterThan(0);
   });
+
+  test('numeric conditions offer every comparison, and the merchant can see where to click', async ({ page }) => {
+    await openAdmin(page, 'openlabel/label/new');
+    const tree = page.locator('#rule_conditions_fieldset');
+    await expect(tree.locator('[data-role="ol-rule-tree-hint"]')).toContainText('"is" for the comparison');
+    await tree.locator('.rule-param-new-child a').first().click();
+    await tree.locator('select[name="rule[conditions][1][new_child]"]')
+      .selectOption('Iranimij\\OpenLabel\\Model\\Condition\\OnSale|discount_amount');
+    const row = tree.locator('li').filter({ hasText: 'Discount (amount)' }).first();
+    const operator = row.locator('.rule-param').nth(1).locator('a.label');
+    await expect(operator).toHaveText('is');
+    await expect(operator).toHaveCSS('color', 'rgb(0, 123, 219)');
+    await expect(operator).toHaveCSS('border-bottom-style', 'dotted');
+    await operator.click();
+    const options = await row.locator('select[name="rule[conditions][1--1][operator]"] option').allInnerTexts();
+    expect(options).toEqual([
+      'is', 'is not', 'equals or greater than', 'equals or less than', 'greater than', 'less than', 'is one of', 'is not one of',
+    ]);
+  });
 });
