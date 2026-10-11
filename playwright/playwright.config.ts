@@ -17,7 +17,16 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'desktop-chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'mobile-chromium', use: { ...devices['Pixel 7'] } },
+    { name: 'desktop-chromium', testIgnore: /admin\//, use: { ...devices['Desktop Chrome'] } },
+    { name: 'mobile-chromium', testIgnore: /admin\//, use: { ...devices['Pixel 7'] } },
+    // Admin specs: one login (auth.setup.ts), desktop only, serial because they share the fixture database.
+    { name: 'admin-setup', testMatch: /admin\/auth\.setup\.ts/ },
+    {
+      name: 'admin-chromium',
+      testMatch: /admin\/.*\.spec\.ts/,
+      dependencies: ['admin-setup'],
+      fullyParallel: false,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, storageState: '.auth/admin.json' },
+    },
   ],
 });
