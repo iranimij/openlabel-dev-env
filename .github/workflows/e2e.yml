@@ -95,7 +95,22 @@ jobs:
           NGINX
           sudo systemctl restart php8.3-fpm nginx
           sudo systemctl stop varnish
+          # Warm the backend directly (first requests compile and generate), then wait for Varnish's health
+          # probe to mark it healthy (it answers 503 until then).
+          curl -sS -o /dev/null -w 'backend health %{http_code}\n' http://localhost:8080/health_check.php || true
+          curl -sS -o /dev/null -w 'backend home %{http_code}\n' --max-time 300 http://localhost:8080/ || true
           sudo varnishd -a :80 -f /tmp/default.vcl -s malloc,256m -n /tmp/varnish
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost/ || true)
+            [ "$code" = 200 ] && break
+            sleep 2
+          done
+          if [ "$code" != 200 ]; then
+            echo "Varnish still answers $code"; grep -n -A6 'probe' /tmp/default.vcl
+            sudo varnishadm -n /tmp/varnish backend.list || true
+            sudo tail -n 30 /var/log/nginx/error.log || true
+            exit 1
+          fi
           curl -fsS -o /dev/null -w 'home %{http_code}\n' http://localhost/
           curl -fsS -o /dev/null -w 'listing %{http_code}\n' http://localhost/gear/bags.html
 
