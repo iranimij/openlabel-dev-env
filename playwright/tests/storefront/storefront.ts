@@ -1,24 +1,15 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { resolve } from 'node:path';
 import { Page, expect } from '@playwright/test';
-import { sql } from '../admin/admin';
+import { magento, sql } from '../fixture';
 
-/** Storefront fixtures for M3 (local Warden fixture: SQL and bin/magento through `warden env exec`). */
+/** Storefront fixtures for M3 (SQL and bin/magento through ../fixture: Warden locally, plain shell in CI). */
 
 export const BAG = { sku: '24-MB01', path: '/joust-duffle-bag.html', category: '/gear/bags.html' };
 export const GROUPS = { guest: 0, general: 1, wholesale: 2 } as const;
 export type Persona = keyof typeof GROUPS;
 export const CUSTOMER_PASSWORD = 'E2e-OpenLabel-1';
 
-/** Runs bin/magento in the fixture's PHP container. */
-export function magento(...args: string[]): string {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { execFileSync } = require('node:child_process') as typeof import('node:child_process');
-  return execFileSync('warden', ['env', 'exec', '-T', 'php-fpm', 'bin/magento', ...args], {
-    cwd: resolve(__dirname, '../../..'),
-    encoding: 'utf8',
-  });
-}
+export { magento } from '../fixture';
 
 function q(value: string): string {
   return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;

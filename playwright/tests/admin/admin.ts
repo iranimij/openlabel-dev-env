@@ -1,6 +1,9 @@
 import { expect, Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { sql } from '../fixture';
+
+export { sql };
 
 /** Admin credentials from the gitignored admin.env at the repository root (or ADMIN_USER / ADMIN_PASSWORD). */
 export function adminCredentials(): { user: string; password: string } {
@@ -38,20 +41,6 @@ export async function openAdmin(page: Page, route: string): Promise<void> {
 /** Unique, recognisable name for records created by a test. */
 export function uniqueName(prefix: string): string {
   return `${prefix} e2e ${Date.now().toString(36)}`;
-}
-
-/**
- * Runs SQL against the fixture database through Warden (local fixture only). Returns tab-separated rows.
- */
-export function sql(query: string): string[][] {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { execFileSync } = require('node:child_process') as typeof import('node:child_process');
-  const out = execFileSync(
-    'warden',
-    ['env', 'exec', '-T', 'db', 'mysql', '-umagento', '-pmagento', 'magento', '-N', '-B', '-e', query],
-    { cwd: resolve(__dirname, '../../..'), encoding: 'utf8' },
-  );
-  return out.trim() === '' ? [] : out.trim().split('\n').map((line) => line.split('\t'));
 }
 
 /** Creates a label directly in the database (one listing placement, first system design) and returns its id. */

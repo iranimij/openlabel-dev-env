@@ -28,11 +28,18 @@ const NAME = 'Lighthouse all products sfe2e-lighthouse';
 function sh(file, args) {
   return execFileSync(file, args, { cwd: root, encoding: 'utf8' });
 }
+// Same fixture modes as tests/fixture.ts: Warden locally, plain shell in CI (OL_FIXTURE=shell).
+const shell = process.env.OL_FIXTURE === 'shell';
 function sql(query) {
-  return sh('warden', ['env', 'exec', '-T', 'db', 'mysql', '-umagento', '-pmagento', 'magento', '-N', '-B', '-e', query]).trim();
+  return (shell
+    ? execFileSync('mysql', ['-h', process.env.DB_HOST ?? '127.0.0.1', '-u', process.env.DB_USER ?? 'magento',
+      `-p${process.env.DB_PASSWORD ?? 'magento'}`, process.env.DB_NAME ?? 'magento', '-N', '-B', '-e', query], { encoding: 'utf8' })
+    : sh('warden', ['env', 'exec', '-T', 'db', 'mysql', '-umagento', '-pmagento', 'magento', '-N', '-B', '-e', query])).trim();
 }
 function magento(...args) {
-  return sh('warden', ['env', 'exec', '-T', 'php-fpm', 'bin/magento', ...args]);
+  return shell
+    ? execFileSync('php', ['bin/magento', ...args], { cwd: process.env.MAGENTO_ROOT ?? root, encoding: 'utf8' })
+    : sh('warden', ['env', 'exec', '-T', 'php-fpm', 'bin/magento', ...args]);
 }
 function setEnabled(on) {
   magento('config:set', 'openlabel/general/enabled', on ? '1' : '0');
@@ -97,7 +104,9 @@ async function series(chrome, label) {
   return out;
 }
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+if (base.startsWith('https:')) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // the local fixture's self-signed certificate
+}
 const chrome = await chromeLauncher.launch({
   chromePath: chromium.executablePath(),
   chromeFlags: ['--headless=new', '--ignore-certificate-errors', '--no-sandbox'],

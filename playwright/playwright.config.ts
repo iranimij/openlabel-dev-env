@@ -19,12 +19,19 @@ export default defineConfig({
   projects: [
     // Storefront projects start after the admin project: the empty-state acceptance spec needs an empty label
     // table, and storefront specs seed their own labels.
-    { name: 'desktop-chromium', testIgnore: /admin\//, dependencies: ['admin-chromium'], use: { ...devices['Desktop Chrome'] } },
+    // Custom-theme fallback switches the store's theme: alone, between the admin and the storefront projects.
+    {
+      name: 'fallback-chromium',
+      testMatch: /fallback\/.*\.spec\.ts/,
+      dependencies: ['admin-chromium'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    { name: 'desktop-chromium', testIgnore: /admin\/|fallback\//, dependencies: ['fallback-chromium'], use: { ...devices['Desktop Chrome'] } },
     // Storefront specs that seed the database run once (desktop); read-only checks also run on mobile.
     {
       name: 'mobile-chromium',
-      testIgnore: /admin\/|storefront\/(?!.*\.mobile\.spec)/,
-      dependencies: ['admin-chromium'],
+      testIgnore: /admin\/|fallback\/|storefront\/(?!.*\.mobile\.spec)/,
+      dependencies: ['fallback-chromium'],
       use: { ...devices['Pixel 7'] },
     },
     // Admin specs: one login (auth.setup.ts), desktop only, serial because they share the fixture database.
