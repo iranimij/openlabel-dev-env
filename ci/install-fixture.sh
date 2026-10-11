@@ -58,7 +58,9 @@ bin/magento setup:install --no-interaction \
   --admin-user="$ADMIN_USER" --admin-password="$ADMIN_PASSWORD" --admin-email=admin@openlabel.test \
   --admin-firstname=Open --admin-lastname=Label \
   --language=en_US --currency=EUR --timezone=Europe/Berlin --use-rewrites=1
-bin/magento module:disable Magento_TwoFactorAuth Magento_AdminAdobeImsTwoFactorAuth
+# No two-factor auth and no first-login popups (usage data, release notes) over the dashboard (fixture only).
+bin/magento module:disable Magento_TwoFactorAuth Magento_AdminAdobeImsTwoFactorAuth Magento_AdminAnalytics \
+  Magento_ReleaseNotification
 bin/magento setup:upgrade --no-interaction
 echo "::endgroup::"
 
