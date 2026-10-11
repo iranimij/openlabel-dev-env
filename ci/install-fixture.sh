@@ -8,7 +8,7 @@ set -euo pipefail
 : "${MAGENTO_ROOT:?}" "${MAGENTO_VERSION:=2.4.9}" "${HYVA_THEME_VERSION:=1.4.2}" "${HYVA_MODULE_VERSION:=1.5.2}"
 : "${DB_HOST:=127.0.0.1}" "${DB_NAME:=magento}" "${DB_USER:=magento}" "${DB_PASSWORD:=magento}"
 : "${ADMIN_USER:?}" "${ADMIN_PASSWORD:?}"
-MIRROR=https://repo-magento-mirror.fooman.co.nz/
+export MIRROR=https://repo-magento-mirror.fooman.co.nz/
 mysql_q() { mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -N -B -e "$1"; }
 
 echo "::group::Composer project"
@@ -16,7 +16,11 @@ if [ -n "${GITHUB_TOKEN:-}" ]; then composer config -g github-oauth.github.com "
 composer create-project --no-interaction --no-progress --no-install --repository-url="$MIRROR" \
   "magento/project-community-edition=$MAGENTO_VERSION" "$MAGENTO_ROOT"
 cd "$MAGENTO_ROOT"
-composer config repositories.0 composer "$MIRROR"
+# The project template points at repo.magento.com (needs keys); use only the public mirror.
+php -r '$f = "composer.json"; $c = json_decode(file_get_contents($f), true);
+  $c["repositories"] = ["magento-mirror" => ["type" => "composer", "url" => getenv("MIRROR")]];
+  file_put_contents($f, json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");'
+grep -q repo.magento.com composer.json && { echo "repo.magento.com still configured"; exit 1; }
 for repo in default-theme theme-module base-layout-reset email-module graphql-tokens graphql-view-model \
             order-cancellation-webapi compat-module-fallback mollie-theme-bundle; do
   composer config "repositories.hyva-$repo" vcs "https://github.com/hyva-themes/magento2-$repo"
