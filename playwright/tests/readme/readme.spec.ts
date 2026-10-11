@@ -10,6 +10,14 @@ import { collectCspViolations } from '../helpers';
  */
 test.describe.configure({ mode: 'serial' });
 
+// A store that was just installed: the first admin, product and search pages compile and warm caches.
+test.setTimeout(120_000);
+
+// The README job's store is fresh; a retry must start from the empty state again.
+test.beforeEach(() => {
+  sql("DELETE FROM openlabel_label; DELETE FROM ui_bookmark WHERE namespace = 'openlabel_label_listing';");
+});
+
 test('README quick start: the Sale starter makes a label that shows on the storefront', async ({ page }) => {
   const { user, password } = adminCredentials();
   await page.goto('/admin');

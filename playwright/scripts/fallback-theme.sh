@@ -7,6 +7,12 @@ set -euo pipefail
 root="${MAGENTO_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 theme="$root/app/design/frontend/OpenLabelE2e/fallback"
 source_gallery="$root/vendor/hyva-themes/magento2-default-theme/Magento_Catalog/templates/product/view/gallery.phtml"
+# The fallback is written for the gallery markup of Hyvä 1.3/1.4 (OpenLabel 1.0's support matrix). Hyvä 1.5
+# rebuilt the gallery (#gallery-main is a scroll track there); exit 3 so the spec reports it as not applicable.
+if ! grep -q '<div id="gallery-main" class="relative mb-6"' "$source_gallery"; then
+  echo "unsupported gallery markup in $source_gallery (Hyvä 1.5+?)" >&2
+  exit 3
+fi
 mkdir -p "$theme/Magento_Catalog/templates/product/view"
 cat > "$theme/registration.php" <<'PHP'
 <?php
