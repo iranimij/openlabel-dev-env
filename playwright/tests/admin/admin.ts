@@ -32,10 +32,28 @@ export async function waitForAdmin(page: Page): Promise<void> {
   await expect(page.locator('.admin__data-grid-loading-mask:visible, .loading-mask:visible')).toHaveCount(0, { timeout: 30_000 });
 }
 
+/**
+ * Closes Magento's first-login popups (usage data, release notes, surveys) on a fresh install. They are
+ * environment noise, not part of OpenLabel's UX, so acceptance specs dismiss them before counting clicks.
+ */
+export async function dismissAdminPopups(page: Page): Promise<void> {
+  for (let i = 0; i < 5; i++) {
+    const modal = page.locator('.modal-popup._show, .modal-slide._show').last();
+    if (!(await modal.isVisible().catch(() => false))) {
+      return;
+    }
+    const later = modal.getByRole('button', { name: /show me later|don't allow|no thanks|done|close/i }).first();
+    const target = (await later.isVisible().catch(() => false)) ? later : modal.locator('.action-close').first();
+    await target.click({ timeout: 5_000 }).catch(() => undefined);
+    await page.waitForTimeout(300);
+  }
+}
+
 /** Opens an admin route such as "openlabel/label/index" and waits for the UI components. */
 export async function openAdmin(page: Page, route: string): Promise<void> {
   await page.goto(`/admin/${route}`);
   await waitForAdmin(page);
+  await dismissAdminPopups(page);
 }
 
 /** Unique, recognisable name for records created by a test. */

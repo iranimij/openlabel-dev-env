@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { sql } from './admin';
+import { dismissAdminPopups, sql } from './admin';
 
 /**
  * 08 · UX Spec §8, first acceptance test: a first-time user creates a working "Sale -25%" label from the empty
@@ -11,6 +11,7 @@ test.describe('acceptance · empty-state starter', () => {
   test('Sale starter: ≤ 3 clicks and ≤ 60 s from the dashboard to a live label', async ({ page }) => {
     await page.goto('/admin/admin/dashboard/');
     await page.waitForLoadState('networkidle');
+    await dismissAdminPopups(page); // a fresh install's first-login popups are not the merchant's clicks
     let clicks = 0;
     const started = Date.now();
 
