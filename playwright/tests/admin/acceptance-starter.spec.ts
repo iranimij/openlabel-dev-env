@@ -21,6 +21,9 @@ test.describe('acceptance · empty-state starter', () => {
     clicks++;
     const starter = page.locator('[data-role="ol-starter"][data-starter="sale"]');
     await expect(starter).toBeVisible();
+    // Let the grid finish its own data load first: an in-flight core mui/index/render request loads the admin
+    // layout, whose messages block takes the session messages, so the "is live" notice could land there.
+    await page.waitForLoadState('networkidle');
     await expect(starter).toContainText('Sale -{SAVE_PERCENT}%');
     await starter.click();
     clicks++;
