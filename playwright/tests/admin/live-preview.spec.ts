@@ -35,6 +35,7 @@ test.describe('label form · live preview', () => {
   test('mobile view scales the badge and keeps it clear of add to cart', async ({ page }) => {
     await openAdmin(page, 'openlabel/label/new');
     await pickDesign(page, 'Sale pill (red)');
+    await expect(badge(page)).toBeVisible();
     const desktop = (await badge(page).boundingBox())!.width;
     await preview(page).getByRole('button', { name: 'Mobile' }).click();
     await expect(preview(page).getByRole('button', { name: 'Mobile' })).toHaveAttribute('aria-pressed', 'true');
