@@ -8,7 +8,7 @@ import { cardLabels, cleanupStorefront, fixtureName, magento, seedDesign, seedSk
  */
 const TAG = 'cache';
 const name = (n: string): string => fixtureName(TAG, n);
-const PACK = { sku: '24-MB04', path: '/strive-shoulder-pack.html', category: '/gear/bags.html' };
+const PACK = { sku: '24-UG06', path: '/affirm-water-bottle.html', category: '/gear/fitness-equipment.html' };
 
 let designId = 0;
 let labelId = 0;

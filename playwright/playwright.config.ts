@@ -17,9 +17,16 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'desktop-chromium', testIgnore: /admin\//, use: { ...devices['Desktop Chrome'] } },
+    // Storefront projects start after the admin project: the empty-state acceptance spec needs an empty label
+    // table, and storefront specs seed their own labels.
+    { name: 'desktop-chromium', testIgnore: /admin\//, dependencies: ['admin-chromium'], use: { ...devices['Desktop Chrome'] } },
     // Storefront specs that seed the database run once (desktop); read-only checks also run on mobile.
-    { name: 'mobile-chromium', testIgnore: /admin\/|storefront\/(?!.*\.mobile\.spec)/, use: { ...devices['Pixel 7'] } },
+    {
+      name: 'mobile-chromium',
+      testIgnore: /admin\/|storefront\/(?!.*\.mobile\.spec)/,
+      dependencies: ['admin-chromium'],
+      use: { ...devices['Pixel 7'] },
+    },
     // Admin specs: one login (auth.setup.ts), desktop only, serial because they share the fixture database.
     { name: 'admin-setup', testMatch: /admin\/auth\.setup\.ts/ },
     {
@@ -27,6 +34,8 @@ export default defineConfig({
       testMatch: /admin\/.*\.spec\.ts/,
       dependencies: ['admin-setup'],
       fullyParallel: false,
+      // One admin session for all specs: parallel workers would contend for its Redis session lock.
+      workers: 1,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, storageState: '.auth/admin.json' },
     },
   ],

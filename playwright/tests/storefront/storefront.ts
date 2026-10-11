@@ -82,16 +82,35 @@ export function fixtureName(tag: string, name: string): string {
   return `${name} sfe2e-${tag}`;
 }
 
-/** Deletes one spec file's labels and designs with their index rows, then cleans the page cache. */
+/**
+ * Removes one spec file's labels and designs. Each label first gets a condition that matches nothing and is
+ * reindexed, which purges exactly its products' pages (Varnish and block cache); no global cache flush, so specs
+ * running in parallel keep their cached pages.
+ */
 export function cleanupStorefront(tag: string): void {
   const like = q(`%sfe2e-${tag}`);
+  const ids = sql(`SELECT label_id FROM openlabel_label WHERE name LIKE ${like};`).map((row) => row[0]);
+  if (ids.length > 0) {
+    const nothing = JSON.stringify({
+      type: 'Iranimij\\OpenLabel\\Model\\Rule\\Condition\\Combine',
+      aggregator: 'all',
+      value: '1',
+      conditions: [{
+        type: 'Iranimij\\OpenLabel\\Model\\Rule\\Condition\\Product',
+        attribute: 'sku',
+        operator: '==',
+        value: '__openlabel_e2e_none__',
+      }],
+    });
+    sql(`UPDATE openlabel_label SET conditions_serialized = ${q(nothing)} WHERE label_id IN (${ids.join(',')});`);
+    for (const id of ids) {
+      magento('openlabel:reindex', id);
+    }
+  }
   sql(
-    `DELETE i FROM openlabel_index i JOIN openlabel_label l ON l.label_id = i.label_id WHERE l.name LIKE ${like};`
-    + ` DELETE FROM openlabel_label WHERE name LIKE ${like};`
+    `DELETE FROM openlabel_label WHERE name LIKE ${like};`
     + ` DELETE FROM openlabel_design WHERE name LIKE ${like} AND is_system = 0;`,
   );
-  magento('openlabel:css:regenerate');
-  magento('cache:clean', 'full_page', 'block_html');
 }
 
 /** Customers in General and Wholesale with a known password (sha256 hash, version 1; Magento upgrades it on login). */
