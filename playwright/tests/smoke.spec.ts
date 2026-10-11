@@ -11,7 +11,8 @@ test.describe('fixture store baseline', () => {
     const headers = response.headers();
     expect(headers['content-security-policy'], 'CSP must be in enforce mode on the storefront').toBeDefined();
     expect(headers['content-security-policy-report-only']).toBeUndefined();
-    expect(headers['via'] ?? headers['x-varnish'], 'Varnish must be in front of the store').toBeDefined();
+    // Warden's Varnish keeps Via/X-Varnish; Magento's own VCL (CI) strips them, and the CI VCL adds X-Cache.
+    expect(headers['via'] ?? headers['x-varnish'] ?? headers['x-cache'], 'Varnish must be in front of the store').toBeDefined();
 
     const violations = collectCspViolations(page);
     await page.goto('/');
