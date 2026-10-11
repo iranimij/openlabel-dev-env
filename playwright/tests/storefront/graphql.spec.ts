@@ -10,7 +10,9 @@ import {
 test.describe.configure({ mode: 'serial' });
 
 const TAG = 'graphql';
-const SKU = '24-MB04';
+// A product in no category the other storefront specs visit: seeding labels purges its pages, which must not
+// turn another spec's second (cached) visit into a Varnish MISS.
+const SKU = 'MH01';
 const name = (n: string): string => fixtureName(TAG, n);
 const TEXTS: Record<Persona, string> = { guest: 'GQL Guest', general: 'GQL General', wholesale: 'GQL Wholesale' };
 const QUERY = `{ products(filter: { sku: { eq: "${SKU}" } }) { items { sku openlabel_labels {`
