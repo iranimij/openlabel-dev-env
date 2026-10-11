@@ -10,7 +10,9 @@ import {
 test.describe.configure({ mode: 'serial' });
 
 const TAG = 'graphql';
-const SKU = '24-MB04';
+// A product in no category the other storefront specs visit: seeding labels purges its pages, which must not
+// turn another spec's second (cached) visit into a Varnish MISS.
+const SKU = 'MH01';
 const name = (n: string): string => fixtureName(TAG, n);
 const TEXTS: Record<Persona, string> = { guest: 'GQL Guest', general: 'GQL General', wholesale: 'GQL Wholesale' };
 const QUERY = `{ products(filter: { sku: { eq: "${SKU}" } }) { items { sku openlabel_labels {`
@@ -73,3 +75,13 @@ for (const persona of ['guest', 'general', 'wholesale'] as Persona[]) {
     }
   });
 }
+
+test('price variables are filled in a products query that asks for no price field', async ({ request }) => {
+  seedSkuLabel(name('Price'), seedDesign(name('Price'), 'From {PRICE}'), SKU, { position: 'br' });
+  const query = `{ products(filter: { sku: { eq: "${SKU}" } }) { items { openlabel_labels { text } } } }`;
+  const response = await request.get('/graphql', { params: { query }, headers: { Store: 'default' } });
+  const body = await response.json();
+  expect(body.errors, JSON.stringify(body.errors)).toBeUndefined();
+  const texts = (body.data.products.items[0].openlabel_labels as Array<{ text: string }>).map((label) => label.text);
+  expect(texts.filter((text) => text.startsWith('From '))[0]).toMatch(/^From €\d+[.,]\d{2}$/);
+});
