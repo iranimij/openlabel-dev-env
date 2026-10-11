@@ -76,9 +76,11 @@ echo "::endgroup::"
 echo "::group::Varnish VCL"
 bin/magento varnish:vcl:generate --backend-host=127.0.0.1 --backend-port=8080 --access-list=127.0.0.1 \
   --export-version=6 --output-file=/tmp/default.vcl
-# CI: probe the home page; pub/health_check.php answers 500 on the runner (body printed by the Serve step).
-sed -i 's#\.url = "/health_check.php";#.url = "/";#; s#\.url = "/pub/health_check.php";#.url = "/";#' /tmp/default.vcl
-grep -q '.url = "/";' /tmp/default.vcl
+# CI: no health probe. The generated probe asks for the page with Host 127.0.0.1, which Magento (base URL
+# http://localhost/) answers with a redirect, so Varnish would mark the only backend sick.
+perl -0pi -e 's/\n[ \t]*\.probe = \{.*?\n[ \t]*\}//s' /tmp/default.vcl
+grep -q 'sub vcl_recv' /tmp/default.vcl
+if grep -q '\.probe' /tmp/default.vcl; then echo 'probe still in the VCL'; exit 1; fi
 # X-Cache HIT/MISS like the local Warden fixture, for the cache specs.
 sed -i 's/^sub vcl_deliver {/sub vcl_deliver {\n    if (obj.hits > 0) { set resp.http.X-Cache = "HIT"; } else { set resp.http.X-Cache = "MISS"; }/' /tmp/default.vcl
 echo "::endgroup::"
