@@ -20,15 +20,35 @@ permissions:
   contents: read
 
 jobs:
+  legs:
+    name: Legs
+    runs-on: ubuntu-latest
+    outputs:
+      include: ${{ steps.legs.outputs.include }}
+    steps:
+      # Pull requests run the Hyvä 1.4 suite. main, nightly and manual runs add the README leg (fresh store,
+      # OpenLabel installed only with the README's commands) and Hyvä 1.5 (tested, not yet a release gate).
+      - id: legs
+        run: |
+          full='{"mode":"full","hyva":{"theme":"1.4.2","module":"1.5.2"},"experimental":false}'
+          readme='{"mode":"readme","hyva":{"theme":"1.4.2","module":"1.5.2"},"experimental":false}'
+          hyva15='{"mode":"full","hyva":{"theme":"1.5.2","module":"1.5.2"},"experimental":true}'
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            echo "include=[$full]" >> "$GITHUB_OUTPUT"
+          else
+            echo "include=[$full,$readme,$hyva15]" >> "$GITHUB_OUTPUT"
+          fi
+
   e2e:
-    name: Playwright · Magento 2.4.9 · Hyvä ${{ matrix.hyva.theme }}
+    name: ${{ matrix.mode == 'readme' && 'README install' || 'Playwright' }} · Magento 2.4.9 · Hyvä ${{ matrix.hyva.theme }}
+    needs: legs
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
-        hyva:
-          - { theme: '1.4.2', module: '1.5.2' }
+        include: ${{ fromJSON(needs.legs.outputs.include) }}
     env:
       MAGENTO_ROOT: /var/www/magento
       DB_HOST: 127.0.0.1
@@ -81,6 +101,11 @@ jobs:
         env:
           HYVA_THEME_VERSION: ${{ matrix.hyva.theme }}
           HYVA_MODULE_VERSION: ${{ matrix.hyva.module }}
+          OPENLABEL_INSTALL: ${{ matrix.mode == 'readme' && 'none' || 'main' }}
+
+      - name: Install OpenLabel with the README's commands only
+        if: matrix.mode == 'readme'
+        run: ci/readme-install.sh
 
       - name: Serve (nginx :8080, Varnish :80)
         run: |
@@ -125,9 +150,14 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
-          npx playwright test
+          if [ "${{ matrix.mode }}" = readme ]; then
+            OL_README=1 npx playwright test --project=readme-chromium
+          else
+            npx playwright test
+          fi
 
       - name: Lighthouse (OpenLabel on vs off)
+        if: matrix.mode == 'full'
         working-directory: playwright
         run: npm run lighthouse
 
@@ -135,7 +165,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-hyva-${{ matrix.hyva.theme }}
+          name: e2e-${{ matrix.mode }}-hyva-${{ matrix.hyva.theme }}
           path: |
             playwright/playwright-report
             playwright/lighthouse-report

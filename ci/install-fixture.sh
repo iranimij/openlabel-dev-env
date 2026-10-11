@@ -8,6 +8,8 @@ set -euo pipefail
 : "${MAGENTO_ROOT:?}" "${MAGENTO_VERSION:=2.4.9}" "${HYVA_THEME_VERSION:=1.4.2}" "${HYVA_MODULE_VERSION:=1.5.2}"
 : "${DB_HOST:=127.0.0.1}" "${DB_NAME:=magento}" "${DB_USER:=magento}" "${DB_PASSWORD:=magento}"
 : "${ADMIN_USER:?}" "${ADMIN_PASSWORD:?}"
+# OPENLABEL_INSTALL=none builds the store without OpenLabel (the README job installs it with the README's commands).
+: "${OPENLABEL_INSTALL:=main}"
 export MIRROR=https://repo-magento-mirror.fooman.co.nz/
 mysql_q() { mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -N -B -e "$1"; }
 
@@ -25,7 +27,7 @@ for repo in default-theme theme-module base-layout-reset email-module graphql-to
             order-cancellation-webapi compat-module-fallback mollie-theme-bundle; do
   composer config "repositories.hyva-$repo" vcs "https://github.com/hyva-themes/magento2-$repo"
 done
-for repo in module-base openlabel openlabel-hyva; do
+for repo in module-base openlabel openlabel-hyva openlabel-hyva-bundle; do
   composer config "repositories.iranimij-$repo" vcs "https://github.com/iranimij/$repo"
 done
 composer config minimum-stability dev
@@ -40,10 +42,14 @@ for m in bundle catalog-rule catalog cms configurable customer downloadable grou
          product-links review sales-rule sales swatches tax theme widget wishlist; do
   sample="$sample magento/module-$m-sample-data:100.4.*"
 done
+openlabel=""
+if [ "$OPENLABEL_INSTALL" = main ]; then
+  openlabel='iranimij/module-base:^1.0 iranimij/openlabel:dev-main iranimij/openlabel-hyva:dev-main'
+fi
 # shellcheck disable=SC2086
 composer require --no-update --no-interaction $sample "magento/sample-data-media:100.4.*" \
   "hyva-themes/magento2-default-theme:$HYVA_THEME_VERSION" "hyva-themes/magento2-theme-module:$HYVA_MODULE_VERSION" \
-  "iranimij/module-base:^1.0" "iranimij/openlabel:dev-main" "iranimij/openlabel-hyva:dev-main"
+  $openlabel
 # One retry: a truncated download from a package host ("is not a zip archive") must not fail the job.
 composer install --no-interaction --no-progress --prefer-dist \
   || { echo "composer install failed, retrying once"; composer clear-cache; composer install --no-interaction --no-progress --prefer-dist; }
@@ -73,7 +79,7 @@ bin/magento config:set system/full_page_cache/caching_application 2
 bin/magento config:set admin/security/use_form_key 0
 mysql_q "INSERT INTO core_config_data (scope, scope_id, path, value) VALUES ('default', 0, 'csp/mode/storefront/report_only', '0') ON DUPLICATE KEY UPDATE value = '0'"
 bin/magento indexer:reindex
-bin/magento openlabel:css:regenerate
+if [ "$OPENLABEL_INSTALL" = main ]; then bin/magento openlabel:css:regenerate; fi
 bin/magento cache:flush
 echo "::endgroup::"
 
