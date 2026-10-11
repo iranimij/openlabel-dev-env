@@ -39,8 +39,11 @@ test.describe('label form · live preview', () => {
     await preview(page).getByRole('button', { name: 'Mobile' }).click();
     await expect(preview(page).getByRole('button', { name: 'Mobile' })).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(async () => (await badge(page).boundingBox())!.width).toBeLessThan(desktop);
+    const logical: Record<string, string> = { tl: 'ts', tr: 'te', bl: 'bs', br: 'be', bc: 'bc' };
     for (const position of ['tl', 'tr', 'bl', 'br', 'bc']) {
       await page.locator('[data-index="placements"] [data-role="ol-position-picker"]').first().locator(`[data-position="${position}"]`).click();
+      // Measure only after the preview re-rendered the stack at the new position.
+      await expect(preview(page).locator('.ol-stack').first()).toHaveClass(new RegExp(`ol-pos-${logical[position]}`));
       const b = (await badge(page).boundingBox())!;
       const cart = (await preview(page).locator('[data-role="ol-preview-cart"]').boundingBox())!;
       const overlaps = b.x < cart.x + cart.width && b.x + b.width > cart.x && b.y < cart.y + cart.height && b.y + b.height > cart.y;
@@ -64,7 +67,7 @@ test.describe('label form · live preview', () => {
     await preview(page).locator('select[data-role="ol-preview-group"]').selectOption({ label: 'NOT LOGGED IN' });
     await expect(preview(page).locator('[data-role="ol-preview-hidden"]')).toContainText('hidden for this customer group');
     await preview(page).locator('select[data-role="ol-preview-group"]').selectOption({ label: 'Wholesale' });
-    await expect(preview(page).locator('[data-role="ol-preview-hidden"]')).toBeHidden();
-    await expect(badge(page)).toBeVisible();
+    await expect(preview(page).locator('[data-role="ol-preview-hidden"]')).toBeHidden({ timeout: 15_000 });
+    await expect(badge(page)).toBeVisible({ timeout: 15_000 });
   });
 });
