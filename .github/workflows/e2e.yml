@@ -1,0 +1,143 @@
+name: E2E
+
+# Storefront and admin Playwright specs plus the Lighthouse gate on a Hyvä fixture store built from public
+# sources (Magento mirror, Hyvä OSL repositories on GitHub, OpenLabel main branches), Varnish in front,
+# storefront CSP enforced. Runs on this repository's main and pull requests, nightly and on demand.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths: ['ci/**', 'playwright/**', '.github/workflows/e2e.yml']
+  schedule:
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Playwright · Magento 2.4.9 · Hyvä ${{ matrix.hyva.theme }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        hyva:
+          - { theme: '1.4.2', module: '1.5.2' }
+    env:
+      MAGENTO_ROOT: /var/www/magento
+      DB_HOST: 127.0.0.1
+      DB_NAME: magento
+      DB_USER: magento
+      DB_PASSWORD: magento
+      ADMIN_USER: openlabel
+      ADMIN_PASSWORD: OpenLabel-e2e-2026
+      BASE_URL: http://localhost
+      OL_FIXTURE: shell
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    services:
+      mariadb:
+        image: mariadb:10.6
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: magento
+          MARIADB_USER: magento
+          MARIADB_PASSWORD: magento
+        ports: ['3306:3306']
+        options: --health-cmd="healthcheck.sh --connect" --health-interval=10s --health-retries=10
+      opensearch:
+        image: opensearchproject/opensearch:2.12.0
+        env:
+          discovery.type: single-node
+          DISABLE_SECURITY_PLUGIN: 'true'
+          OPENSEARCH_JAVA_OPTS: -Xms1g -Xmx1g
+        ports: ['9200:9200']
+      redis:
+        image: redis:7.2
+        ports: ['6379:6379']
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: PHP 8.3, nginx, Varnish
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq php8.3-fpm php8.3-cli php8.3-bcmath php8.3-curl php8.3-gd php8.3-intl \
+            php8.3-mbstring php8.3-mysql php8.3-soap php8.3-xml php8.3-zip nginx varnish
+          sudo update-alternatives --set php /usr/bin/php8.3
+          for ini in /etc/php/8.3/cli/php.ini /etc/php/8.3/fpm/php.ini; do
+            sudo sed -i 's/^memory_limit = .*/memory_limit = 4G/; s/^;*realpath_cache_size = .*/realpath_cache_size = 10M/' "$ini"
+          done
+          sudo sed -i "s/^user = www-data/user = runner/; s/^group = www-data/group = runner/" /etc/php/8.3/fpm/pool.d/www.conf
+          sudo mkdir -p "$MAGENTO_ROOT" && sudo chown runner:runner "$MAGENTO_ROOT"
+          php -v
+
+      - name: Fixture store
+        run: ci/install-fixture.sh
+        env:
+          HYVA_THEME_VERSION: ${{ matrix.hyva.theme }}
+          HYVA_MODULE_VERSION: ${{ matrix.hyva.module }}
+
+      - name: Serve (nginx :8080, Varnish :80)
+        run: |
+          sudo tee /etc/nginx/sites-available/default > /dev/null <<NGINX
+          upstream fastcgi_backend { server unix:/run/php/php8.3-fpm.sock; }
+          server {
+              listen 8080;
+              server_name localhost;
+              set \$MAGE_ROOT $MAGENTO_ROOT;
+              include $MAGENTO_ROOT/nginx.conf.sample;
+          }
+          NGINX
+          sudo systemctl restart php8.3-fpm nginx
+          sudo systemctl stop varnish
+          # Warm the backend directly (first requests compile and generate), then wait for Varnish's health
+          # probe to mark it healthy (it answers 503 until then).
+          curl -sS -w '\nbackend health %{http_code}\n' http://localhost:8080/health_check.php | tail -c 600 || true
+          curl -sS -o /dev/null -w 'backend home %{http_code}\n' --max-time 300 http://localhost:8080/ || true
+          sudo varnishd -a :80 -f /tmp/default.vcl -s malloc,256m -n /tmp/varnish
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost/ || true)
+            [ "$code" = 200 ] && break
+            sleep 2
+          done
+          if [ "$code" != 200 ]; then
+            echo "Varnish still answers $code"; grep -n -A6 'probe' /tmp/default.vcl
+            sudo varnishadm -n /tmp/varnish backend.list || true
+            sudo tail -n 30 /var/log/nginx/error.log || true
+            exit 1
+          fi
+          curl -fsS -o /dev/null -w 'home %{http_code}\n' http://localhost/
+          curl -fsS -o /dev/null -w 'listing %{http_code}\n' http://localhost/gear/bags.html
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: playwright/package-lock.json
+
+      - name: Playwright
+        working-directory: playwright
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npx playwright test
+
+      - name: Lighthouse (OpenLabel on vs off)
+        working-directory: playwright
+        run: npm run lighthouse
+
+      - name: Reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-hyva-${{ matrix.hyva.theme }}
+          path: |
+            playwright/playwright-report
+            playwright/lighthouse-report
+            ${{ env.MAGENTO_ROOT }}/var/log
+          retention-days: 14

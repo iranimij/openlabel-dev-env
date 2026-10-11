@@ -1,6 +1,9 @@
 import { expect, Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { sql } from '../fixture';
+
+export { sql };
 
 /** Admin credentials from the gitignored admin.env at the repository root (or ADMIN_USER / ADMIN_PASSWORD). */
 export function adminCredentials(): { user: string; password: string } {
@@ -29,29 +32,33 @@ export async function waitForAdmin(page: Page): Promise<void> {
   await expect(page.locator('.admin__data-grid-loading-mask:visible, .loading-mask:visible')).toHaveCount(0, { timeout: 30_000 });
 }
 
+/**
+ * Closes Magento's first-login popups (usage data, release notes, surveys) on a fresh install. They are
+ * environment noise, not part of OpenLabel's UX, so acceptance specs dismiss them before counting clicks.
+ */
+export async function dismissAdminPopups(page: Page): Promise<void> {
+  for (let i = 0; i < 5; i++) {
+    const modal = page.locator('.modal-popup._show, .modal-slide._show').last();
+    if (!(await modal.isVisible().catch(() => false))) {
+      return;
+    }
+    const later = modal.getByRole('button', { name: /show me later|don't allow|no thanks|done|close/i }).first();
+    const target = (await later.isVisible().catch(() => false)) ? later : modal.locator('.action-close').first();
+    await target.click({ timeout: 5_000 }).catch(() => undefined);
+    await page.waitForTimeout(300);
+  }
+}
+
 /** Opens an admin route such as "openlabel/label/index" and waits for the UI components. */
 export async function openAdmin(page: Page, route: string): Promise<void> {
   await page.goto(`/admin/${route}`);
   await waitForAdmin(page);
+  await dismissAdminPopups(page);
 }
 
 /** Unique, recognisable name for records created by a test. */
 export function uniqueName(prefix: string): string {
   return `${prefix} e2e ${Date.now().toString(36)}`;
-}
-
-/**
- * Runs SQL against the fixture database through Warden (local fixture only). Returns tab-separated rows.
- */
-export function sql(query: string): string[][] {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { execFileSync } = require('node:child_process') as typeof import('node:child_process');
-  const out = execFileSync(
-    'warden',
-    ['env', 'exec', '-T', 'db', 'mysql', '-umagento', '-pmagento', 'magento', '-N', '-B', '-e', query],
-    { cwd: resolve(__dirname, '../../..'), encoding: 'utf8' },
-  );
-  return out.trim() === '' ? [] : out.trim().split('\n').map((line) => line.split('\t'));
 }
 
 /** Creates a label directly in the database (one listing placement, first system design) and returns its id. */
