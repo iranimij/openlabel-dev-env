@@ -25,6 +25,20 @@ cd playwright && npm ci && npx playwright install chromium && npx playwright tes
 
 Store: https://app.openlabel.test/ · Admin: https://app.openlabel.test/admin
 
+## Tests
+
+```bash
+cd playwright
+npx playwright test     # admin (1 worker) → custom-theme fallback → storefront desktop + mobile
+npm run lighthouse      # OpenLabel on vs off: CLS, score, one stylesheet, no JS (writes lighthouse-report/)
+```
+
+Specs reach the database and `bin/magento` through `playwright/tests/fixture.ts`: Warden locally, plain shell in CI (`OL_FIXTURE=shell`).
+
+## CI (`.github/workflows/e2e.yml`)
+
+On `main`, pull requests touching `ci/`, `playwright/` or the workflow, nightly and on demand: `ci/install-fixture.sh` builds Magento 2.4.9 with sample data from the public Magento mirror, Hyvä 1.4.2 from Hyvä's public OSL repositories on GitHub and OpenLabel from the `main` branches; nginx + PHP-FPM behind Varnish, storefront CSP enforced. Then Playwright and the Lighthouse gate; reports are uploaded as artifacts. The CI VCL has no health probe and adds `X-Cache`; no Hyvä Composer keys are needed.
+
 ## Notes
 
 - `wardenenv/opensearch:2.12` crashes the JVM on Apple Silicon; `.warden/warden-env.yml` pins `opensearchproject/opensearch:2.5.0`.
