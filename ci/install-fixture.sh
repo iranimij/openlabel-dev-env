@@ -43,7 +43,7 @@ done
 # shellcheck disable=SC2086
 composer require --no-update --no-interaction $sample "magento/sample-data-media:100.4.*" \
   "hyva-themes/magento2-default-theme:$HYVA_THEME_VERSION" "hyva-themes/magento2-theme-module:$HYVA_MODULE_VERSION" \
-  "iranimij/module-base:dev-main" "iranimij/openlabel:dev-main" "iranimij/openlabel-hyva:dev-main"
+  "iranimij/module-base:^1.0" "iranimij/openlabel:dev-main" "iranimij/openlabel-hyva:dev-main"
 composer install --no-interaction --no-progress --prefer-dist
 echo "::endgroup::"
 
