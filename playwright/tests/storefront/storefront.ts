@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { Page, expect } from '@playwright/test';
-import { magento, sql } from '../fixture';
+import { isHyva15Gallery, magento, sql } from '../fixture';
 
 /** Storefront fixtures for M3 (SQL and bin/magento through ../fixture: Warden locally, plain shell in CI). */
 
@@ -142,5 +142,13 @@ export async function cardLabels(page: Page, productPath: string): Promise<strin
 
 /** Texts of the labels inside the product page gallery. */
 export async function galleryLabels(page: Page): Promise<string[]> {
-  return page.locator('#gallery-main > .ol-stack .ol-label').allInnerTexts();
+  return page.locator(`${galleryRoot()} > .ol-stack .ol-label`).allInnerTexts();
+}
+
+/**
+ * The element OpenLabel puts the product-page stacks into: #gallery-main on Hyvä 1.3/1.4, the positioned wrapper
+ * around the scrolling #gallery-main track on Hyvä 1.5.
+ */
+export function galleryRoot(): string {
+  return isHyva15Gallery() ? '#gallery > .relative' : '#gallery-main';
 }

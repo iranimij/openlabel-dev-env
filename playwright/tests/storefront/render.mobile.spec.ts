@@ -1,6 +1,6 @@
 import { test, expect, Page, Locator } from '@playwright/test';
 import { collectCspViolations } from '../helpers';
-import { cleanupStorefront, fixtureName, magento, seedDesign, seedSkuLabel } from './storefront';
+import { cleanupStorefront, fixtureName, galleryRoot, magento, seedDesign, seedSkuLabel } from './storefront';
 
 /**
  * Storefront rendering on Hyvä 1.4 (CSP enforced, Varnish on, theme never rebuilt with OpenLabel):
@@ -98,8 +98,8 @@ test('search results and the home page widget show labels too', async ({ page })
 test('product page: label inside the gallery, legible, no CSP errors', async ({ page }) => {
   const csp = collectCspViolations(page);
   await page.goto(WATCH.path);
-  const gallery = page.locator('#gallery-main');
-  const label = gallery.locator('.ol-stack .ol-label', { hasText: exact() });
+  const gallery = page.locator(galleryRoot());
+  const label = gallery.locator('> .ol-stack .ol-label', { hasText: exact() });
   await expect(label).toBeVisible();
   await expectOverlay(gallery.locator('> .ol-stack').first(), gallery);
   expect(await fontSize(label)).toBeGreaterThanOrEqual(11);

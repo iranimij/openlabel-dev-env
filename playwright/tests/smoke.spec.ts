@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { isHyva15Gallery } from './fixture';
 import { collectCspViolations, firstProductUrl } from './helpers';
 
 /** Sample-data category present in every fixture build. */
@@ -33,7 +34,12 @@ test.describe('fixture store baseline', () => {
     const violations = collectCspViolations(page);
     await page.goto(await firstProductUrl(page, CATEGORY));
     await expect(page.locator('#gallery-main')).toBeVisible();
-    await expect(page.locator('#gallery-main img').first()).toHaveAttribute('width', /\d+/);
+    if (isHyva15Gallery()) {
+      // Hyvä 1.5: the first slide of the track shows the image (a collapsed track would hide it).
+      await expect(page.locator('#gallery-main img').first()).toBeVisible();
+    } else {
+      await expect(page.locator('#gallery-main img').first()).toHaveAttribute('width', /\d+/);
+    }
     expect(violations).toEqual([]);
   });
 });
