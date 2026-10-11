@@ -16,9 +16,19 @@ const TAG = 'fallback';
 const SKU = '24-WG080';
 let previousTheme: string | null = null;
 let productPath = '';
+/** Set when the installed Hyvä gallery is not the 1.3/1.4 markup this fallback is written for (Hyvä 1.5+). */
+let unsupported = '';
 
 test.beforeAll(() => {
-  execFileSync(resolve(__dirname, '../../scripts/fallback-theme.sh'), { encoding: 'utf8' });
+  try {
+    execFileSync(resolve(__dirname, '../../scripts/fallback-theme.sh'), { encoding: 'utf8' });
+  } catch (error) {
+    if ((error as { status?: number }).status === 3) {
+      unsupported = 'Hyvä gallery markup newer than 1.4 (not in OpenLabel 1.0\'s support matrix)';
+      return;
+    }
+    throw error;
+  }
   const parent = sql("SELECT theme_id FROM theme WHERE theme_path = 'Hyva/default' AND area = 'frontend'")[0][0];
   sql(
     'INSERT INTO theme (parent_id, theme_path, theme_title, is_featured, area, type, code)'
@@ -41,6 +51,9 @@ test.beforeAll(() => {
 });
 
 test.afterAll(() => {
+  if (unsupported !== '') {
+    return;
+  }
   if (previousTheme === null) {
     sql("DELETE FROM core_config_data WHERE path = 'design/theme/theme_id' AND scope = 'stores' AND scope_id = 1");
   } else {
@@ -51,6 +64,7 @@ test.afterAll(() => {
 });
 
 test('renamed gallery container: the theme renders the label child itself, once', async ({ page }) => {
+  test.skip(unsupported !== '', unsupported);
   await page.goto(productPath);
   await expect(page.locator('#gallery-main')).toHaveCount(0);
   const gallery = page.locator('#gallery-custom');
