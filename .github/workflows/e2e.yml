@@ -97,7 +97,7 @@ jobs:
           sudo systemctl stop varnish
           # Warm the backend directly (first requests compile and generate), then wait for Varnish's health
           # probe to mark it healthy (it answers 503 until then).
-          curl -sS -o /dev/null -w 'backend health %{http_code}\n' http://localhost:8080/health_check.php || true
+          curl -sS -w '\nbackend health %{http_code}\n' http://localhost:8080/health_check.php | tail -c 600 || true
           curl -sS -o /dev/null -w 'backend home %{http_code}\n' --max-time 300 http://localhost:8080/ || true
           sudo varnishd -a :80 -f /tmp/default.vcl -s malloc,256m -n /tmp/varnish
           for i in $(seq 1 60); do
