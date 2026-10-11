@@ -18,7 +18,8 @@ export default defineConfig({
   },
   projects: [
     { name: 'desktop-chromium', testIgnore: /admin\//, use: { ...devices['Desktop Chrome'] } },
-    { name: 'mobile-chromium', testIgnore: /admin\//, use: { ...devices['Pixel 7'] } },
+    // Storefront specs that seed the database run once (desktop); read-only checks also run on mobile.
+    { name: 'mobile-chromium', testIgnore: /admin\/|storefront\/(?!.*\.mobile\.spec)/, use: { ...devices['Pixel 7'] } },
     // Admin specs: one login (auth.setup.ts), desktop only, serial because they share the fixture database.
     { name: 'admin-setup', testMatch: /admin\/auth\.setup\.ts/ },
     {
