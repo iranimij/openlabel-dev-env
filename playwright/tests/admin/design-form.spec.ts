@@ -67,6 +67,40 @@ test.describe('design form', () => {
     await expect(page.locator('[data-role="ol-image-meta"]')).toContainText('96 × 32 px');
   });
 
+  test('motion and per-screen sizes are saved (1.1)', async ({ page }) => {
+    const name = uniqueName('Design');
+    await newDesign(page);
+    await page.fill('input[name="name"]', name);
+    await page.locator('.ol-type-card[data-type="shape"]').click();
+    await page.locator('.ol-text-vars input.admin__control-text').fill('Hot');
+    await setColour(page, 'bg_color', '#b91c1c');
+    await setColour(page, 'text_color', '#ffffff');
+    await page.locator('.fieldset-wrapper[data-index="motion"] .fieldset-wrapper-title').click();
+    await page.locator('select[name="animation"]').selectOption('pop');
+    await page.locator('select[name="hover_effect"]').selectOption('grow');
+    await page.locator('.fieldset-wrapper[data-index="size"] .fieldset-wrapper-title').click();
+    await page.locator('input[name="sizes[sm][width]"]').fill('30');
+    await page.locator('input[name="sizes[sm][font_size]"]').fill('12');
+    await page.locator('.page-actions-buttons').getByRole('button', { name: 'Save', exact: true }).first().click();
+    await expect(page.locator('.message-success')).toContainText('The design was saved.');
+    expect(sql(`SELECT animation, hover_effect, sizes FROM openlabel_design WHERE name = '${name}'`)[0])
+      .toEqual(['pop', 'grow', '{"sm":{"width":30,"font_size":12}}']);
+  });
+
+  test('an AVIF image is accepted with its dimensions (1.1)', async ({ page }) => {
+    await newDesign(page);
+    await page.locator('.ol-type-card[data-type="image"]').click();
+    const ispe = Buffer.alloc(20);
+    ispe.writeUInt32BE(20, 0); ispe.write('ispe', 4); ispe.writeUInt32BE(120, 12); ispe.writeUInt32BE(40, 16);
+    const ftyp = Buffer.concat([Buffer.from([0, 0, 0, 28]), Buffer.from('ftypavif'), Buffer.alloc(4), Buffer.from('mif1miafMA1B')]);
+    await page.locator('input[type="file"]').first().setInputFiles({
+      name: 'e2e-badge.avif',
+      mimeType: 'image/avif',
+      buffer: Buffer.concat([ftyp, ispe, Buffer.alloc(64)]),
+    });
+    await expect(page.locator('[data-role="ol-image-meta"]')).toContainText('120 × 40 px');
+  });
+
   test('built-in designs are locked with a Duplicate to edit button', async ({ page }) => {
     const id = sql('SELECT MIN(design_id) FROM openlabel_design WHERE is_system = 1')[0][0];
     await openAdmin(page, `openlabel/design/edit/id/${id}`);
