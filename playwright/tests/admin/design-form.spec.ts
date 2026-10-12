@@ -75,6 +75,7 @@ test.describe('design form', () => {
     await page.locator('.ol-text-vars input.admin__control-text').fill('Hot');
     await setColour(page, 'bg_color', '#b91c1c');
     await setColour(page, 'text_color', '#ffffff');
+    await page.fill('input[name="store_texts[0][tooltip]"]', 'Ends Sunday');
     await page.locator('.fieldset-wrapper[data-index="motion"] .fieldset-wrapper-title').click();
     await page.locator('select[name="animation"]').selectOption('pop');
     await page.locator('select[name="hover_effect"]').selectOption('grow');
@@ -85,6 +86,8 @@ test.describe('design form', () => {
     await expect(page.locator('.message-success')).toContainText('The design was saved.');
     expect(sql(`SELECT animation, hover_effect, sizes FROM openlabel_design WHERE name = '${name}'`)[0])
       .toEqual(['pop', 'grow', '{"sm":{"width":30,"font_size":12}}']);
+    expect(sql(`SELECT s.tooltip FROM openlabel_design d JOIN openlabel_design_store s ON s.design_id = d.design_id AND s.store_id = 0 WHERE d.name = '${name}'`)[0][0])
+      .toBe('Ends Sunday');
   });
 
   test('an AVIF image is accepted with its dimensions (1.1)', async ({ page }) => {
