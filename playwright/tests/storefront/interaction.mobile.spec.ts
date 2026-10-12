@@ -40,7 +40,7 @@ function card(page: Page): Locator {
 }
 
 function label(scope: Locator): Locator {
-  return scope.locator('.ol-label', { hasText: new RegExp(`^${text}$`) });
+  return scope.locator('.ol-label:not(.ol-label--hidden)', { hasText: new RegExp(`^${text}$`) });
 }
 
 test('listing: the image label shows its tooltip on hover and is not a link inside the card link', async ({ page }, testInfo) => {
