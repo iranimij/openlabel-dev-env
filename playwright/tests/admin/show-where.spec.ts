@@ -50,4 +50,20 @@ test.describe('label form · show where', () => {
       .toBe('near_price');
     await expect(page.locator('.data-row').filter({ hasText: name })).toContainText('next to the price');
   });
+
+  test('item lists are offered as pages and always show labels next to the item (1.1)', async ({ page }) => {
+    const name = uniqueName('Where');
+    await openAdmin(page, 'openlabel/label/new');
+    await page.fill('input[name="name"]', name);
+    await page.locator('.ol-design-tile').first().click();
+    const area = page.locator('select[name="placements[0][area]"]');
+    for (const option of ['Shopping cart', 'Mini cart', 'Wish list', 'Compare products', 'Order emails']) {
+      await expect(area.locator('option', { hasText: option })).toHaveCount(1);
+    }
+    await area.selectOption('cart');
+    await page.locator('.page-actions-buttons').getByRole('button', { name: 'Save', exact: true }).first().click();
+    await expect(page.locator('.message-success')).toContainText('The label was saved.');
+    expect(sql(`SELECT p.area, p.position FROM openlabel_placement p JOIN openlabel_label l ON l.label_id = p.label_id WHERE l.name = '${name}'`)[0])
+      .toEqual(['cart', 'under_name']);
+  });
 });
