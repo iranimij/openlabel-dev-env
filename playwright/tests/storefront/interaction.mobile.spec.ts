@@ -24,10 +24,16 @@ test.beforeAll(({}, testInfo) => {
   sql(`UPDATE openlabel_design_store SET tooltip = 'Offer ends Sunday' WHERE design_id = ${design} AND store_id = 0;`);
   const label = seedSkuLabel(fixtureName(tag, 'Pant'), design, PANT.sku, {
     reindex: false,
-    placements: [['listing', 'br'], ['product', 'br'], ['listing', 'under_name']],
+    placements: [['listing', 'tr'], ['product', 'br'], ['listing', 'under_name']],
+  });
+  // A label in the band right above it: the tooltip opens upwards, over that label's stack.
+  const band = seedSkuLabel(fixtureName(tag, 'Band'), seedDesign(fixtureName(tag, 'Band'), 'E2E Band', '#166534'), PANT.sku, {
+    reindex: false,
+    placements: [['listing', 'above_r']],
   });
   sql(`UPDATE openlabel_label SET click_url = '/gear.html', click_nofollow = 1 WHERE label_id = ${label};`);
   magento('openlabel:reindex', String(label));
+  magento('openlabel:reindex', String(band));
   magento('openlabel:css:regenerate');
 });
 
@@ -59,6 +65,26 @@ test('listing: the image label shows its tooltip on hover and is not a link insi
     await onImage.hover();
     await expect(tip).toBeVisible();
     await expect(tip).toHaveText('Offer ends Sunday');
+    // Hit testing follows paint order, but skips what ignores the pointer (labels, stacks and the tooltip), so
+    // only for this check everything takes the pointer.
+    const onTop = await tip.evaluate((el) => {
+      const hitAll = document.createElement('style');
+      hitAll.textContent = '* { pointer-events: auto !important; }';
+      document.head.append(hitAll);
+      const box = el.getBoundingClientRect();
+      const covered: string[] = [];
+      for (const x of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+        for (const y of [0.25, 0.5, 0.75]) {
+          const hit = document.elementFromPoint(box.left + box.width * x, box.top + box.height * y);
+          if (hit !== null && !el.contains(hit)) {
+            covered.push(hit.className.toString());
+          }
+        }
+      }
+      hitAll.remove();
+      return covered;
+    });
+    expect(onTop, 'the tooltip is above the label stacks around it').toEqual([]);
   }
 
   // Under the name the label is outside the card link, so it is a real link.
