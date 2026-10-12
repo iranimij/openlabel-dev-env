@@ -34,6 +34,23 @@ test.describe('label form', () => {
     expect(row[1]).toMatch(/^2026-11-30 2[23]:59:00$/);
   });
 
+  test('hide when a variable is zero, the link and nofollow are saved; an unsafe link is refused (1.1)', async ({ page }) => {
+    const name = uniqueName('Link');
+    await openAdmin(page, 'openlabel/label/new');
+    await page.fill('input[name="name"]', name);
+    await page.locator('.ol-design-tile').first().click();
+    await page.locator('[data-index="hide_on_zero_variable"] .admin__actions-switch-label').click();
+    await page.fill('input[name="click_url"]', 'javascript:alert(1)');
+    await (await saveButton(page)).click();
+    await expect(page.locator('.message-error, .admin__field-error').first()).toContainText('Enter a link that starts with https://, http:// or /.');
+    await page.fill('input[name="click_url"]', '/sale.html');
+    await page.locator('[data-index="click_nofollow"] .admin__actions-switch-label').click();
+    await (await saveButton(page)).click();
+    await expect(page.locator('.message-success')).toContainText('The label was saved.');
+    expect(sql(`SELECT hide_on_zero_variable, click_url, click_nofollow FROM openlabel_label WHERE name = '${name}'`)[0])
+      .toEqual(['1', '/sale.html', '1']);
+  });
+
   test('missing placement is reported inline without leaving the form', async ({ page }) => {
     await openAdmin(page, 'openlabel/label/new');
     await page.fill('input[name="name"]', uniqueName('Nowhere'));

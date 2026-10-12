@@ -26,17 +26,19 @@ export default defineConfig({
       dependencies: ['admin-chromium'],
       use: { ...devices['Desktop Chrome'] },
     },
-    { name: 'desktop-chromium', testIgnore: /admin\/|fallback\/|readme\//, dependencies: ['fallback-chromium'], use: { ...devices['Desktop Chrome'] } },
+    { name: 'desktop-chromium', testIgnore: /admin\/|fallback\/|readme\/|screenshots\//, dependencies: ['fallback-chromium'], use: { ...devices['Desktop Chrome'] } },
     // Storefront specs that seed the database run once (desktop); read-only checks also run on mobile.
     {
       name: 'mobile-chromium',
-      testIgnore: /admin\/|fallback\/|readme\/|storefront\/(?!.*\.mobile\.spec)/,
+      testIgnore: /admin\/|fallback\/|readme\/|screenshots\/|storefront\/(?!.*\.mobile\.spec)/,
       dependencies: ['fallback-chromium'],
       use: { ...devices['Pixel 7'] },
     },
     // README walkthrough on a store where OpenLabel was installed with the README's commands only (E2E readme job,
     // OL_README=1); it needs an empty label table, so it never runs with the other projects.
     ...(process.env.OL_README ? [{ name: 'readme-chromium', testMatch: /readme\/.*\.spec\.ts/, use: { ...devices['Desktop Chrome'] } }] : []),
+    // Screenshots for milestone reports (OL_SCREENSHOTS=1, local only); seeds its own labels.
+    ...(process.env.OL_SCREENSHOTS ? [{ name: 'screenshots-chromium', testMatch: /screenshots\/.*\.spec\.ts/, dependencies: ['admin-setup'], use: { ...devices['Desktop Chrome'] } }] : []),
     // Admin specs: one login (auth.setup.ts), desktop only, serial because they share the fixture database.
     { name: 'admin-setup', testMatch: /admin\/auth\.setup\.ts/ },
     {

@@ -1,12 +1,31 @@
 import { test, expect } from '@playwright/test';
 import { dismissAdminPopups, sql } from './admin';
+import { magento } from '../fixture';
+
+/** Labels that existed before the spec (a developer's own labels on a local store): kept aside, then put back. */
+const BACKUP = ['openlabel_label', 'openlabel_placement', 'openlabel_label_product'];
 
 /**
  * 08 · UX Spec §8, first acceptance test: a first-time user creates a working "Sale -25%" label from the empty
  * state in at most 3 clicks and 60 seconds. Starts from the dashboard, counts every click.
  */
 test.describe('acceptance · empty-state starter', () => {
-  test.beforeAll(() => sql("DELETE FROM openlabel_label; DELETE FROM ui_bookmark WHERE namespace = 'openlabel_label_listing';"));
+  // The empty state needs an empty label table. On a fresh CI store it is empty already; on a developer's store
+  // the existing labels are copied aside first and restored afterwards, never lost.
+  test.beforeAll(() => {
+    sql(BACKUP.map((t) => `DROP TABLE IF EXISTS e2e_backup_${t}; CREATE TABLE e2e_backup_${t} AS SELECT * FROM ${t};`).join(' '));
+    sql("DELETE FROM openlabel_label; DELETE FROM ui_bookmark WHERE namespace = 'openlabel_label_listing';");
+  });
+
+  test.afterAll(() => {
+    // The starter label made by this spec goes; the labels from before come back.
+    sql('DELETE FROM openlabel_label; ' + BACKUP.map((t) => `INSERT IGNORE INTO ${t} SELECT * FROM e2e_backup_${t};`).join(' '));
+    const restored = sql('SELECT label_id FROM e2e_backup_openlabel_label').map((row) => row[0]);
+    sql(BACKUP.map((t) => `DROP TABLE IF EXISTS e2e_backup_${t};`).join(' '));
+    for (const id of restored) {
+      magento('openlabel:reindex', id);
+    }
+  });
 
   test('Sale starter: ≤ 3 clicks and ≤ 60 s from the dashboard to a live label', async ({ page }) => {
     await page.goto('/admin/admin/dashboard/');

@@ -35,7 +35,7 @@ export function seedSkuLabel(
   name: string,
   designId: number,
   sku: string,
-  options: { groups?: number[]; position?: string; pin?: boolean; reindex?: boolean } = {},
+  options: { groups?: number[]; position?: string; pin?: boolean; reindex?: boolean; placements?: Array<[string, string]> } = {},
 ): number {
   const conditions = JSON.stringify({
     type: 'Iranimij\\OpenLabel\\Model\\Rule\\Condition\\Combine',
@@ -54,8 +54,9 @@ export function seedSkuLabel(
     'INSERT INTO openlabel_label (name, status, priority, design_id, store_ids, customer_group_ids, conditions_serialized)'
     + ` VALUES (${q(name)}, 1, 5, ${designId}, '', ${q((options.groups ?? []).join(','))}, ${q(conditions)});`
     + ' SET @l = LAST_INSERT_ID();'
-    + ' INSERT INTO openlabel_placement (label_id, area, position, pin_physical_side, max_labels)'
-    + ` VALUES (@l, 'listing', '${position}', ${pin}, 3), (@l, 'product', '${position}', ${pin}, 3);`
+    + ' INSERT INTO openlabel_placement (label_id, area, position, pin_physical_side, max_labels) VALUES '
+    + (options.placements ?? [['listing', position], ['product', position]])
+      .map(([area, at]) => `(@l, '${area}', '${at}', ${pin}, 3)`).join(', ') + ';'
     + ' SELECT @l;',
   );
   const id = Number(rows[rows.length - 1][0]);
