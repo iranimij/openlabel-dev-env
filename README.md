@@ -31,6 +31,8 @@ Store: https://app.openlabel.test/ · Admin: https://app.openlabel.test/admin
 cd playwright
 npx playwright test     # admin (1 worker) → custom-theme fallback → storefront desktop + mobile
 npm run lighthouse      # OpenLabel on vs off: CLS, score, one stylesheet, no JS (writes lighthouse-report/)
+OL_SCREENSHOTS=1 npx playwright test --project=screenshots-chromium tests/screenshots/readme-gif.spec.ts
+                        # the GIF at the top of OpenLabel's README (needs ffmpeg; writes modules/openlabel/docs/assets)
 ```
 
 Specs reach the database and `bin/magento` through `playwright/tests/fixture.ts`: Warden locally, plain shell in CI (`OL_FIXTURE=shell`).
